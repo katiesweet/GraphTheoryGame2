@@ -1,3 +1,5 @@
+#include <chrono>
+#include <future>
 #include <iostream>
 #include <vector>
 
@@ -88,14 +90,37 @@ void printResult(const int &winner) {
 //    startingGraph: Basic graph that forms root of game tree
 int main() {
   const int numVertices = 6;
-  const int trianglesForWin = true;
-  auto startingGraph = std::make_shared<Graph>(numVertices, trianglesForWin);
+  const bool trianglesForWin = false;
 
-  GraphOperations::colorEdge(startingGraph, 0, 1);
-  // GraphOperations::colorEdge(startingGraph, 1, 2);
-  // GraphOperations::colorEdge(startingGraph, 2, 3);
-  auto winner = recurseAllMoves(startingGraph, 1, 2);
-  printResult(winner);
+  // Run the result if Player 2 plays adjacent first
+  auto startingGraphAdjacent =
+      std::make_shared<Graph>(numVertices, trianglesForWin);
+  GraphOperations::colorEdge(startingGraphAdjacent, 0, 1);
+  auto futWinnerAdjacent = std::async(std::launch::async, recurseAllMoves,
+                                      startingGraphAdjacent, 1, 2);
 
+  // Run the result if Player 2 plays non-adjacent first
+  auto startingGraphNonAdjacent =
+      std::make_shared<Graph>(numVertices, trianglesForWin);
+  GraphOperations::colorEdge(startingGraphNonAdjacent, 0, 1);
+  auto futWinnerNonAdjacent = std::async(std::launch::async, recurseAllMoves,
+                                         startingGraphNonAdjacent, 2, 3);
+  auto start = std::chrono::system_clock::now();
+
+  std::cout << "Waiting..." << std::endl;
+  futWinnerAdjacent.wait();
+  std::cout << std::endl
+            << "Winner if player two plays adjacent is: " << std::endl;
+  printResult(futWinnerAdjacent.get());
+
+  std::cout << "Waiting some more..." << std::endl;
+  futWinnerNonAdjacent.wait();
+  std::cout << std::endl
+            << "Winner if player two plays non-adjacent is: " << std::endl;
+  printResult(futWinnerNonAdjacent.get());
+
+  auto end = std::chrono::system_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(end - start);
+  std::cout << "This program took: " << elapsed.count() << " min\n";
   return 0;
 }
